@@ -103,3 +103,28 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t ai-devops-platform:${{ github.sha }} .
+
+  deploy:
+    needs:
+      - quality
+      - ai-review
+      - docker-build
+    runs-on: [self-hosted, Linux, X64, ai-devops]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy application
+        run: |
+          docker compose down
+          docker compose up -d --build
+
+      - name: Wait for application
+        run: sleep 10
+
+      - name: Health check
+        run: |
+          curl --fail http://localhost:8000/health
