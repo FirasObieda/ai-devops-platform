@@ -41,3 +41,15 @@ jobs:
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
+
+  runner-test:
+    runs-on: [self-hosted, linux, x64, ai-devops]
+
+    steps:
+      - name: Test self-hosted runner
+        run: |
+          echo "Self-hosted runner is working!"
+          echo "Hostname: $(hostname)"
+          echo "Python: $(python3 --version)"
+          echo "Ollama:"
+          ollama --version      
