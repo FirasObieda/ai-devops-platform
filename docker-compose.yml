@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/firasobieda/ai-devops-platform:latest
+    image: ${IMAGE_NAME:-ghcr.io/firasobieda/ai-devops-platform:latest}
     ports:
       - "8000:8000"
     environment:

@@ -116,13 +116,12 @@ jobs:
         run: |
           docker build \
             -t ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }} \
-            -t ghcr.io/firasobieda/ai-devops-platform:latest \
             .
 
       - name: Push Docker image
         run: |
-          docker push ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
-          docker push ghcr.io/firasobieda/ai-devops-platform:latest
+          docker push \
+            ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
 
   deploy:
     if: github.event_name == 'push'
@@ -141,24 +140,13 @@ jobs:
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IMAGE_NAME: ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Save current image for rollback
-        run: |
-          if docker image inspect ghcr.io/firasobieda/ai-devops-platform:latest > /dev/null 2>&1; then
-            docker tag \
-              ghcr.io/firasobieda/ai-devops-platform:latest \
-              ghcr.io/firasobieda/ai-devops-platform:previous
-
-            echo "Previous image saved for rollback."
-          else
-            echo "No previous image found. This is the first deployment."
-          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -167,16 +155,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Detect currently deployed image
+        id: current-image
+        run: |
+          currentImage=$(docker inspect \
+            --format='{{.Config.Image}}' \
+            ai-devops-platform-api-1 2>/dev/null || true)
+
+          if [ -n "$currentImage" ]; then
+            echo "Current deployed image: $currentImage"
+            echo "rollbackImage=$currentImage" >> "$GITHUB_OUTPUT"
+          else
+            echo "No currently deployed application container found."
+            echo "rollbackImage=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Pull application image
         run: |
-          docker pull \
-            ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
-
-      - name: Tag application image as latest
-        run: |
-          docker tag \
-            ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }} \
-            ghcr.io/firasobieda/ai-devops-platform:latest
+          docker pull "$IMAGE_NAME"
 
       - name: Deploy application
         run: |
@@ -199,16 +195,19 @@ jobs:
 
       - name: Roll back deployment
         if: failure()
+        env:
+          ROLLBACK_IMAGE: ${{ steps.current-image.outputs.rollbackImage }}
         run: |
           echo "Deployment failed. Starting rollback..."
 
-          if docker image inspect ghcr.io/firasobieda/ai-devops-platform:previous > /dev/null 2>&1; then
+          if [ -n "$ROLLBACK_IMAGE" ]; then
+            echo "Rolling back to: $ROLLBACK_IMAGE"
+
+            docker pull "$ROLLBACK_IMAGE"
+
             docker compose down
 
-            docker tag \
-              ghcr.io/firasobieda/ai-devops-platform:previous \
-              ghcr.io/firasobieda/ai-devops-platform:latest
-
+            export IMAGE_NAME="$ROLLBACK_IMAGE"
             docker compose up -d
 
             echo "Previous version restored."
