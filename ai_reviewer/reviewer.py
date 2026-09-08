@@ -83,10 +83,36 @@ def reviewCode(code, reviewType="code"):
 
     response.raise_for_status()
 
-    reviewData = json.loads(response.json()["response"])
-    review = CodeReview.model_validate(reviewData)
+    rawResponse = response.json()["response"]
 
-    return review
+    try:
+        reviewData = json.loads(rawResponse)
+        return CodeReview.model_validate(reviewData)
+    except (json.JSONDecodeError, ValueError):
+        retryPrompt = (
+            prompt
+            + "\n\nYour previous response was invalid. "
+            "Return ONLY JSON matching the exact schema. "
+            "The 'issues' field must contain ONLY objects with "
+            "severity, type, description, and recommendation. "
+            "Do not place strings or other fields inside 'issues'."
+        )
+
+        retryResponse = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL,
+                "prompt": retryPrompt,
+                "stream": False,
+                "format": "json",
+            },
+            timeout=120,
+        )
+
+        retryResponse.raise_for_status()
+
+        retryData = json.loads(retryResponse.json()["response"])
+        return CodeReview.model_validate(retryData)
 
 
 def makeDecision(review):
