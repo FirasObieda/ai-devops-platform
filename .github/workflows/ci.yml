@@ -127,4 +127,15 @@ jobs:
 
       - name: Health check
         run: |
-          curl --fail http://localhost:8000/health
+          for i in {1..12}; do
+            if curl --fail http://localhost:8000/health; then
+              echo "Application is healthy."
+              exit 0
+            fi
+
+            echo "Health check failed. Retrying in 5 seconds..."
+            sleep 5
+          done
+
+          echo "Application failed health check."
+          exit 1
