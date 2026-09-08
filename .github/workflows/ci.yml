@@ -104,8 +104,8 @@ jobs:
       - name: Build Docker image
         run: docker build -t ai-devops-platform:${{ github.sha }} .
 
-  deploy:
-    needs:
+    deploy:
+      needs:
       - quality
       - ai-review
       - docker-build
@@ -123,12 +123,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Save current image for rollback
+        run: |
+          if docker image inspect ai-devops-platform:latest > /dev/null 2>&1; then
+            docker tag ai-devops-platform:latest ai-devops-platform:previous
+            echo "Previous image saved for rollback."
+          else
+            echo "No previous image found. This is the first deployment."
+          fi
+
       - name: Deploy application
         run: |
-          docker compose down
           docker compose up -d --build
 
       - name: Health check
+        id: health-check
         run: |
           for i in {1..12}; do
             if curl --fail http://localhost:8000/health; then
@@ -142,3 +151,32 @@ jobs:
 
           echo "Application failed health check."
           exit 1
+
+      - name: Roll back deployment
+        if: failure()
+        run: |
+          echo "Deployment failed. Starting rollback..."
+
+          if docker image inspect ai-devops-platform:previous > /dev/null 2>&1; then
+            docker compose down
+            docker tag ai-devops-platform:previous ai-devops-platform:latest
+            docker compose up -d
+
+            echo "Previous version restored."
+
+            for i in {1..12}; do
+              if curl --fail http://localhost:8000/health; then
+                echo "Rollback successful."
+                exit 0
+              fi
+
+              echo "Rollback health check failed. Retrying in 5 seconds..."
+              sleep 5
+            done
+
+            echo "Rollback failed."
+            exit 1
+          else
+            echo "No previous image available. Rollback skipped."
+            exit 1
+          fi
