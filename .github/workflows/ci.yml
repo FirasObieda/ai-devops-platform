@@ -43,7 +43,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
 
   runner-test:
-    runs-on: [self-hosted, linux, x64, ai-devops]
+    runs-on: [self-hosted, Linux, X64, ai-devops]
 
     steps:
       - name: Test self-hosted runner
