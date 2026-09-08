@@ -111,6 +111,12 @@ jobs:
       - docker-build
     runs-on: [self-hosted, Linux, X64, ai-devops]
 
+    env:
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,9 +127,6 @@ jobs:
         run: |
           docker compose down
           docker compose up -d --build
-
-      - name: Wait for application
-        run: sleep 10
 
       - name: Health check
         run: |
