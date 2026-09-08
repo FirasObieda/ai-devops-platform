@@ -7,7 +7,6 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base
 from app.main import app, getDb
 
-
 testEngine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
