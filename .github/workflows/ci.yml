@@ -32,3 +32,12 @@ jobs:
 
       - name: Run tests
         run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest
+
+      - name: Install security tools
+        run: pip install pip-audit
+
+      - name: Audit dependencies
+        run: pip-audit -r requirements.txt
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
