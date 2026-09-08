@@ -24,6 +24,7 @@ jobs:
         with:
           fetch-depth: 0
 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -87,3 +88,18 @@ jobs:
 
           git diff "$BEFORE_SHA" "$AFTER_SHA" -- '*.py' \
             | python3 -m ai_reviewer.reviewer --diff
+
+  docker-build:
+    needs:
+      - quality
+      - ai-review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Docker image
+        run: docker build -t ai-devops-platform:${{ github.sha }} .
