@@ -35,7 +35,7 @@ def root():
 
 @app.get("/health")
 def healthCheck():
-    return {"status": "healthy"}
+    return {"status": "broken"}, 500
 
 
 @app.get("/products", response_model=list[ProductResponse])
