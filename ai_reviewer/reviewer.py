@@ -22,10 +22,24 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "qwen2.5-coder:7b"
 
 
-def reviewCode(code):
+def reviewCode(code, reviewType="code"):
+    if reviewType == "diff":
+        reviewTarget = (
+            "The following is a Git diff containing changes to Python code. "
+            "Review the changes carefully. Focus on problems introduced by "
+            "the changes rather than unrelated issues in unchanged code.\n\n"
+            "Git diff to review:\n\n"
+        )
+    else:
+        reviewTarget = (
+            "The following is Python code. Review the complete code.\n\n"
+            "Code to review:\n\n"
+        )
+
     prompt = (
         "You are a senior software engineer performing a code review.\n\n"
-        "Analyze the following Python code for:\n"
+        + reviewTarget
+        + "Analyze for:\n"
         "- Bugs\n"
         "- Security vulnerabilities\n"
         "- Poor coding practices\n"
@@ -53,7 +67,6 @@ def reviewCode(code):
         "  ],\n"
         '  "recommendation": "approve|reject"\n'
         "}\n\n"
-        "Code to review:\n\n"
         + code
     )
 
@@ -93,30 +106,52 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(
             "Usage: python -m ai_reviewer.reviewer "
-            "<python_file> [python_file ...]"
+            "[--diff] <python_file> [python_file ...]"
         )
         sys.exit(1)
 
-    overallDecision = "approve"
+    reviewType = "code"
 
-    for filePath in sys.argv[1:]:
-        print(f"\n===== Reviewing: {filePath} =====")
+    if sys.argv[1] == "--diff":
+        reviewType = "diff"
+        code = sys.stdin.read()
 
-        with open(filePath, "r", encoding="utf-8") as file:
-            code = file.read()
+        if not code.strip():
+            print("No diff provided for review.")
+            sys.exit(0)
 
-        review = reviewCode(code)
+        review = reviewCode(code, reviewType)
         decision = makeDecision(review)
 
+        print("\n===== Reviewing Git diff =====")
         print(review.model_dump_json(indent=2))
         print()
         print("Pipeline Decision:", decision.upper())
 
         if decision == "reject":
-            overallDecision = "reject"
+            sys.exit(1)
 
-    print("\n===== Overall Pipeline Decision =====")
-    print(overallDecision.upper())
+    else:
+        overallDecision = "approve"
 
-    if overallDecision == "reject":
-        sys.exit(1)
+        for filePath in sys.argv[1:]:
+            print(f"\n===== Reviewing: {filePath} =====")
+
+            with open(filePath, "r", encoding="utf-8") as file:
+                code = file.read()
+
+            review = reviewCode(code, reviewType)
+            decision = makeDecision(review)
+
+            print(review.model_dump_json(indent=2))
+            print()
+            print("Pipeline Decision:", decision.upper())
+
+            if decision == "reject":
+                overallDecision = "reject"
+
+        print("\n===== Overall Pipeline Decision =====")
+        print(overallDecision.upper())
+
+        if overallDecision == "reject":
+            sys.exit(1)
