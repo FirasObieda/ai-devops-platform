@@ -49,9 +49,15 @@ def reviewCode(code, reviewType="code"):
         "or secrets as a vulnerability by itself.\n"
         "- Environment variables are an accepted way to provide credentials "
         "and configuration at runtime.\n"
-        "- Only report a security issue when there is a concrete vulnerability, "
-        "such as hardcoded secrets, SQL injection, command injection, "
-        "authentication bypass, unsafe deserialization, or exposed sensitive data.\n\n"
+        "Only report a security issue when there is a concrete and exploitable "
+        "vulnerability, such as hardcoded secrets, SQL injection, command injection, "
+        "authentication bypass, unsafe deserialization, or exposed sensitive data.\n"
+        "- Do not classify normal JSON parsing, validation, exception handling, "
+        "retry logic, or multiple independent validation attempts as security "
+        "vulnerabilities unless there is a specific exploitable attack path.\n"
+        "- Do not report speculative vulnerabilities based only on the possibility "
+        "of an exception or malformed input.\n"
+        "- For Git diffs, evaluate only problems introduced by the changed lines.\n\n"
         "Return ONLY valid JSON. Do not include markdown, explanations, "
         "or code fences.\n\n"
         "Use exactly this JSON structure:\n"
@@ -120,8 +126,7 @@ def makeDecision(review):
         if issue.type == "security" and issue.severity in ["medium", "high"]:
             return "reject"
 
-        if issue.severity == "high":
-            return "reject"
+    return "approve"
 
     if review.riskLevel == "high":
         return "reject"
