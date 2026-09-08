@@ -45,7 +45,7 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
 
- ai-review:
+  ai-review:
     if: github.event_name == 'push'
     runs-on: [self-hosted, Linux, X64, ai-devops]
 
