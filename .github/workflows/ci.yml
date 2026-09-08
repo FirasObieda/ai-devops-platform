@@ -24,7 +24,6 @@ jobs:
         with:
           fetch-depth: 0
 
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -90,10 +89,15 @@ jobs:
             | python3 -m ai_reviewer.reviewer --diff
 
   docker-build:
+    if: github.event_name == 'push'
     needs:
       - quality
       - ai-review
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -101,15 +105,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Docker image
-        run: docker build -t ai-devops-platform:${{ github.sha }} .
+        run: |
+          docker build \
+            -t ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }} \
+            -t ghcr.io/firasobieda/ai-devops-platform:latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
+          docker push ghcr.io/firasobieda/ai-devops-platform:latest
 
   deploy:
+    if: github.event_name == 'push'
     needs:
       - quality
       - ai-review
       - docker-build
     runs-on: [self-hosted, Linux, X64, ai-devops]
+
+    permissions:
+      contents: read
+      packages: read
 
     env:
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -125,16 +150,37 @@ jobs:
 
       - name: Save current image for rollback
         run: |
-          if docker image inspect ai-devops-platform:latest > /dev/null 2>&1; then
-            docker tag ai-devops-platform:latest ai-devops-platform:previous
+          if docker image inspect ghcr.io/firasobieda/ai-devops-platform:latest > /dev/null 2>&1; then
+            docker tag \
+              ghcr.io/firasobieda/ai-devops-platform:latest \
+              ghcr.io/firasobieda/ai-devops-platform:previous
+
             echo "Previous image saved for rollback."
           else
             echo "No previous image found. This is the first deployment."
           fi
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull application image
+        run: |
+          docker pull \
+            ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}
+
+      - name: Tag application image as latest
+        run: |
+          docker tag \
+            ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }} \
+            ghcr.io/firasobieda/ai-devops-platform:latest
+
       - name: Deploy application
         run: |
-          docker compose up -d --build
+          docker compose up -d
 
       - name: Health check
         run: |
@@ -156,9 +202,13 @@ jobs:
         run: |
           echo "Deployment failed. Starting rollback..."
 
-          if docker image inspect ai-devops-platform:previous > /dev/null 2>&1; then
+          if docker image inspect ghcr.io/firasobieda/ai-devops-platform:previous > /dev/null 2>&1; then
             docker compose down
-            docker tag ai-devops-platform:previous ai-devops-platform:latest
+
+            docker tag \
+              ghcr.io/firasobieda/ai-devops-platform:previous \
+              ghcr.io/firasobieda/ai-devops-platform:latest
+
             docker compose up -d
 
             echo "Previous version restored."
