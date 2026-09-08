@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -42,14 +45,25 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
 
-  runner-test:
+ ai-review:
+    if: github.event_name == 'push'
     runs-on: [self-hosted, Linux, X64, ai-devops]
 
     steps:
-      - name: Test self-hosted runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Ollama
         run: |
-          echo "Self-hosted runner is working!"
-          echo "Hostname: $(hostname)"
-          echo "Python: $(python3 --version)"
-          echo "Ollama:"
-          ollama --version      
+          echo "Ollama version:"
+          ollama --version
+
+      - name: Install dependencies
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Run AI code review
+        run: |
+          python3 -m ai_reviewer.reviewer \
+            app/main.py \
+            app/database.py \
+            app/models.py

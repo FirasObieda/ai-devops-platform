@@ -1,5 +1,6 @@
 import json
 import sys
+
 import requests
 from pydantic import BaseModel
 
@@ -69,9 +70,8 @@ def reviewCode(code):
 
 def makeDecision(review):
     for issue in review.issues:
-        if issue.type == "security":
-            if issue.severity in ["medium", "high"]:
-                return "reject"
+        if issue.type == "security" and issue.severity in ["medium", "high"]:
+            return "reject"
 
         if issue.severity == "high":
             return "reject"
@@ -82,22 +82,33 @@ def makeDecision(review):
     return "approve"
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python -m ai_reviewer.reviewer <python_file>")
+    if len(sys.argv) < 2:
+        print(
+            "Usage: python -m ai_reviewer.reviewer "
+            "<python_file> [python_file ...]"
+        )
         sys.exit(1)
 
-    filePath = sys.argv[1]
+    overallDecision = "approve"
 
-    with open(filePath, "r", encoding="utf-8") as file:
-        code = file.read()
+    for filePath in sys.argv[1:]:
+        print(f"\n===== Reviewing: {filePath} =====")
 
-    review = reviewCode(code)
-    decision = makeDecision(review)
+        with open(filePath, "r", encoding="utf-8") as file:
+            code = file.read()
 
-    print("AI Review:")
-    print(review.model_dump_json(indent=2))
-    print()
-    print("Pipeline Decision:", decision.upper())
+        review = reviewCode(code)
+        decision = makeDecision(review)
 
-    if decision == "reject":
+        print(review.model_dump_json(indent=2))
+        print()
+        print("Pipeline Decision:", decision.upper())
+
+        if decision == "reject":
+            overallDecision = "reject"
+
+    print("\n===== Overall Pipeline Decision =====")
+    print(overallDecision.upper())
+
+    if overallDecision == "reject":
         sys.exit(1)

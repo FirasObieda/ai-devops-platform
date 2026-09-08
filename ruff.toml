@@ -1,2 +1,4 @@
+exclude = ["actions-runner"]
+
 [lint]
 ignore = ["B008"]
