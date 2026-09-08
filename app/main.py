@@ -2,12 +2,12 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal
 from .models import Product as ProductModel
 
 app = FastAPI(title="E-Commerce API")
 
-Base.metadata.create_all(bind=engine)
+
 
 
 def getDb():
