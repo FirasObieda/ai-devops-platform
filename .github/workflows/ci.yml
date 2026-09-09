@@ -185,6 +185,7 @@ jobs:
           docker compose up -d
 
       - name: Health check
+        id: health
         run: |
           for i in {1..12}; do
             if curl --fail http://localhost:8000/health; then
@@ -200,7 +201,7 @@ jobs:
           exit 1
 
       - name: Roll back deployment
-        if: failure()
+        if: steps.health.outcome == 'failure'
         run: |
           echo "Deployment failed. Starting rollback..."
 
