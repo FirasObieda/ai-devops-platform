@@ -182,6 +182,8 @@ jobs:
 
       - name: Deploy application
         run: |
+          deployment_start=$(date +%s)
+          echo "DEPLOYMENT_START=$deployment_start" >> "$GITHUB_ENV"
           docker compose up -d
 
       - name: Deployment summary
@@ -214,7 +216,12 @@ jobs:
             echo "Response: $body"
 
             if [ "$http_code" = "200" ]; then
+              deployment_end=$(date +%s)
+              deployment_duration=$((deployment_end - DEPLOYMENT_START))
+
               echo "Application is healthy."
+              echo "Deployment duration: ${deployment_duration}s"
+
               exit 0
             fi
 
