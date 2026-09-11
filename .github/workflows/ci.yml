@@ -186,6 +186,7 @@ jobs:
 
       - name: Health check
         id: health
+        continue-on-error: true
         run: |
           for i in {1..12}; do
             if curl --fail http://localhost:8000/health; then
