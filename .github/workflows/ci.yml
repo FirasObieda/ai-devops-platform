@@ -184,6 +184,18 @@ jobs:
         run: |
           docker compose up -d
 
+      - name: Deployment summary
+        run: |
+          echo "===== Deployment Summary ====="
+          echo "Commit: ${{ github.sha }}"
+          echo "Image: ghcr.io/firasobieda/ai-devops-platform:${{ github.sha }}"
+          echo
+          echo "===== Container Status ====="
+          docker compose ps
+          echo
+          echo "===== Deployed Images ====="
+          docker compose images
+
       - name: Health check
         id: health
         continue-on-error: true
