@@ -200,19 +200,32 @@ jobs:
         id: health
         continue-on-error: true
         run: |
+          echo "===== Health Check ====="
+
           for i in {1..12}; do
-            if curl --fail http://localhost:8000/health; then
+            echo "Attempt $i/12"
+
+            response=$(curl -sS -w '\n%{http_code}' http://localhost:8000/health || true)
+
+            http_code=$(echo "$response" | tail -n 1)
+            body=$(echo "$response" | sed '$d')
+
+            echo "HTTP status: $http_code"
+            echo "Response: $body"
+
+            if [ "$http_code" = "200" ]; then
               echo "Application is healthy."
               exit 0
             fi
 
-            echo "Health check failed. Retrying in 5 seconds..."
-            sleep 5
+            if [ "$i" -lt 12 ]; then
+              echo "Health check failed. Retrying in 5 seconds..."
+              sleep 5
+            fi
           done
 
           echo "Application failed health check."
           exit 1
-
       - name: Roll back deployment
         if: steps.health.outcome == 'failure'
         run: |
