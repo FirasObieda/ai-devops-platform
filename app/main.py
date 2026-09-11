@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -34,9 +34,8 @@ def root():
 
 
 @app.get("/health")
-def healthCheck(response: Response):
-    response.status_code = 500
-    return {"status": "broken"}
+def healthCheck():
+    return {"status": "healthy"}
 
 
 @app.get("/products", response_model=list[ProductResponse])
