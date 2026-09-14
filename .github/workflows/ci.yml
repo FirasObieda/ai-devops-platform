@@ -218,6 +218,11 @@ jobs:
             if [ "$http_code" = "200" ]; then
               deployment_end=$(date +%s)
               deployment_duration=$((deployment_end - DEPLOYMENT_START))
+              echo "DEPLOYMENT_DURATION=${deployment_duration}s" >> "$GITHUB_ENV"
+              echo "DEPLOYMENT_HTTP_STATUS=$http_code" >> "$GITHUB_ENV"
+              echo "DEPLOYMENT_RESPONSE<<EOF" >> "$GITHUB_ENV"
+              echo "$body" >> "$GITHUB_ENV"
+              echo "EOF" >> "$GITHUB_ENV"
 
               echo "Application is healthy."
               echo "Deployment duration: ${deployment_duration}s"
@@ -302,6 +307,31 @@ jobs:
               "response": os.environ.get("DEPLOYMENT_RESPONSE"),
               "deployment_duration": os.environ.get("DEPLOYMENT_DURATION"),
               "rollback_status": os.environ.get("ROLLBACK_STATUS", "unknown")
+          }
+
+          print(json.dumps(payload))
+          PY
+          )"
+
+      - name: Notify n8n of deployment success
+        if: steps.health.outcome == 'success'
+        run: |
+          curl -X POST \
+            http://localhost:5678/webhook/github-deployment \
+            -H "Content-Type: application/json" \
+            -d "$(python3 - <<'PY'
+          import json
+          import os
+
+          payload = {
+              "event": "success",
+              "message": "Deployment completed successfully",
+              "commit": os.environ.get("GITHUB_SHA"),
+              "image": f"ghcr.io/firasobieda/ai-devops-platform:{os.environ.get('GITHUB_SHA')}",
+              "http_status": os.environ.get("DEPLOYMENT_HTTP_STATUS"),
+              "response": os.environ.get("DEPLOYMENT_RESPONSE"),
+              "deployment_duration": os.environ.get("DEPLOYMENT_DURATION"),
+              "rollback_status": "not_required"
           }
 
           print(json.dumps(payload))

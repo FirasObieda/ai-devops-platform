@@ -35,7 +35,7 @@ def root():
 
 @app.get("/health")
 def healthCheck():
-    raise HTTPException(status_code=500, detail="Intentional deployment failure")
+    return {"status": "healthy"}
 
 
 @app.get("/products", response_model=list[ProductResponse])
