@@ -30,7 +30,7 @@ class ProductResponse(Product):
 
 @app.get("/")
 def root():
-    return {"message": "E-Commerce API is running"}
+    return {"message": "E-Commerce API is running successfully"}
 
 
 @app.get("/health")
