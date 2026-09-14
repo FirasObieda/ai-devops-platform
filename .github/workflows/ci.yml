@@ -231,8 +231,22 @@ jobs:
             fi
           done
 
+          deployment_end=$(date +%s)
+          deployment_duration=$((deployment_end - DEPLOYMENT_START))
+
+          echo "DEPLOYMENT_HTTP_STATUS=$http_code" >> "$GITHUB_ENV"
+          echo "DEPLOYMENT_RESPONSE<<EOF" >> "$GITHUB_ENV"
+          echo "$body" >> "$GITHUB_ENV"
+          echo "EOF" >> "$GITHUB_ENV"
+          echo "DEPLOYMENT_DURATION=${deployment_duration}s" >> "$GITHUB_ENV"
+
           echo "Application failed health check."
+          echo "Final HTTP status: $http_code"
+          echo "Final response: $body"
+          echo "Deployment duration: ${deployment_duration}s"
+
           exit 1
+
       - name: Roll back deployment
         if: steps.health.outcome == 'failure'
         run: |
@@ -252,6 +266,7 @@ jobs:
             for i in {1..12}; do
               if curl --fail http://localhost:8000/health; then
                 echo "Rollback successful."
+                echo "ROLLBACK_STATUS=successful" >> "$GITHUB_ENV"
                 exit 0
               fi
 
@@ -260,8 +275,35 @@ jobs:
             done
 
             echo "Rollback failed."
+            echo "ROLLBACK_STATUS=failed" >> "$GITHUB_ENV"
             exit 1
           else
             echo "No previous image available. Rollback skipped."
+            echo "ROLLBACK_STATUS=skipped" >> "$GITHUB_ENV"
             exit 1
           fi
+
+      - name: Notify n8n of deployment failure
+        if: always() && steps.health.outcome == 'failure'
+        run: |
+          curl -X POST \
+            http://localhost:5678/webhook/github-deployment \
+            -H "Content-Type: application/json" \
+            -d "$(python3 - <<'PY'
+          import json
+          import os
+
+          payload = {
+              "event": "failure",
+              "message": "Deployment failed during health check",
+              "commit": os.environ.get("GITHUB_SHA"),
+              "image": f"ghcr.io/firasobieda/ai-devops-platform:{os.environ.get('GITHUB_SHA')}",
+              "http_status": os.environ.get("DEPLOYMENT_HTTP_STATUS"),
+              "response": os.environ.get("DEPLOYMENT_RESPONSE"),
+              "deployment_duration": os.environ.get("DEPLOYMENT_DURATION"),
+              "rollback_status": os.environ.get("ROLLBACK_STATUS", "unknown")
+          }
+
+          print(json.dumps(payload))
+          PY
+          )"
